@@ -22,16 +22,13 @@ namespace bench {
         asm volatile("" :);
     } 
 
-    /// @brief composes a benchmark task data 
+    /// @brief comprises a benchmark task data 
     struct BenchData {
         using time_t = std::chrono::time_point<std::chrono::steady_clock>;
 
-        BenchData(std::string name, time_t b, time_t e) 
-        : bench_name(std::move(name)),
-        begin(b), 
-        end(e)
-        {}
-
+        BenchData(std::string&& name, time_t begin_time);
+        BenchData(std::string&& name, time_t begin_time, time_t end_time);
+        void SetEnd(time_t end_time);
         std::string bench_name;
         time_t begin;
         time_t end;
@@ -45,10 +42,12 @@ namespace bench {
         void StartBenchmark(std::string&& name);
         void StartBenchmark();
         void EndBenchmark();
-
+    public:
         std::string Dump() const;
     private:
-        TaskId GiveId() const;
+        TaskId GiveId();
+
+        int task_ctr_ = 0;
         std::stack<TaskId> bench_tasks_stack_;
         BenchEvents bench_tasks_data_;
     };
@@ -61,17 +60,16 @@ namespace bench {
         template <typename Lambda>
         void MeasureFunction(Lambda&& lambda, const std::string& lambda_name)
         {
-            auto lmbd = lambda;
+            auto lmbd = std::forward<decltype(lambda)>(lambda);
+
             auto begin = std::chrono::steady_clock::now();
             lmbd();
             auto end = std::chrono::steady_clock::now();
+
             bench_funcs_data_.emplace_back(std::move(lambda_name), begin, end);
         }
 
-        std::string Dump const
-        {
-            
-        }
+        std::string Dump() const;
 
     private:
         BenchEvents bench_funcs_data_;
