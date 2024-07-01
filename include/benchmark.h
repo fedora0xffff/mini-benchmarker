@@ -90,6 +90,6 @@ namespace bench {
 
 } //namespace bench
 
-#define BENCH_BEGIN(name) (BasicBenchmarker::GetInstance().StartBenchmark((name)))
-#define BENCH_END (BasicBenchmarker::GetInstance().EndBenchmark()) 
-#define BENCH_FUNC(FunctionObj) (FuncBenchmarker::GetInstance().MeasureFunction(FunctionObj, #FunctionObj))
+#define BENCH_BEGIN(name) (bench::BasicBenchmarker::GetInstance().StartBenchmark((name)))
+#define BENCH_END (bench::BasicBenchmarker::GetInstance().EndBenchmark()) 
+#define BENCH_FUNC(FunctionObj) (bench::FuncBenchmarker::GetInstance().MeasureFunction(FunctionObj, #FunctionObj))
