@@ -62,21 +62,12 @@ namespace bench {
     public:
         static BasicBenchmarker& GetInstance();
 
-        // template <typename T>
-        // void StartBenchmark(T&& name)
-        // {
-        //     const auto taskId = GiveId(); 
-        //     auto begin = std::chrono::steady_clock::now();
-        //     BenchData bd(std::forward<std::decay_t<T>>(name), begin);
-        //     bench_tasks_data_[taskId] = bd;
-        //     bench_tasks_stack_.push(taskId);
-        // }
-
-        void StartBenchmark(std::string name)
+        template <typename T>
+        void StartBenchmark(T&& name)
         {
             const auto taskId = GiveId(); 
             auto begin = std::chrono::steady_clock::now();
-            bench_tasks_data_[taskId] = BenchData{name, begin};
+            bench_tasks_data_[taskId] = {std::forward<T>(name), begin};
             bench_tasks_stack_.push(taskId);
         }
 
