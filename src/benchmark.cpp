@@ -1,5 +1,4 @@
 #include "../include/benchmark.h"
-#include "bench_data.h"
 #include "benchmark.h"
 
 using namespace bench;
