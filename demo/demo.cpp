@@ -33,10 +33,12 @@ void ManyPushbacksNoReserve(int num_elements)
     std::vector<char> bytes;
     for (int i = 0; i < num_elements; ++i)
     {
-        NoOptimization(i);
+        //NoOptimization(i);
+        NO_OPT(i);
         bytes.push_back(i);
     }
-    NoOptimization(bytes);
+    NO_OPT(bytes[bytes.size()-1]);
+    //NoOptimization(bytes);
     std::cout << bytes.size() << std::endl;
 }
 
@@ -47,11 +49,13 @@ void ManyPushbacksWithReserve(int num_elements)
     for (int i = 0; i < num_elements; ++i)
     {
         // using NoOptimization with @i for loop optimization ellision
-        NoOptimization(i);
+        //NoOptimization(i);
+        NO_OPT(i);
         bytes.push_back(i);
     }
     // same, using NoOptimization with @bytes to guarantee that vector is filled
-    NoOptimization(bytes);
+    //NoOptimization(bytes);
+    NO_OPT(bytes[bytes.size()-1]);
     std::cout << bytes.size() << std::endl;
 }
 
@@ -82,23 +86,20 @@ void SingleCodeSectionDemo(int num_elements)
     BENCH_PRINT_Nanosec;
 }
 
-// void SeveralCodeSectionsDemo(int num_elements)
-// {
+void SeveralCodeSectionsDemo(int num_elements)
+{
     
-//     //BENCH_START_NAMED("section1: ManyPushbacksNoReserveDemo");
-//     BasicBenchmarker::GetInstance().StartBenchmark("section1: ManyPushbacksNoReserveDemo");
-//     ManyPushbacksNoReserve(num_elements);
-//     BENCH_END;
+    BENCH_START_NAMED("section1: ManyPushbacksNoReserveDemo");
+    ManyPushbacksNoReserve(num_elements);
+    BENCH_END;
 
-//     //BENCH_START_NAMED("section2: ManyPushbacksWithReserveDemo");
-//     BasicBenchmarker::GetInstance().StartBenchmark("section2: ManyPushbacksWithReserveDemo");
+    BENCH_START_NAMED("section2: ManyPushbacksWithReserveDemo");
+    ManyPushbacksWithReserve(num_elements);
+    BENCH_END;
 
-//     ManyPushbacksWithReserve(num_elements);
-//     BENCH_END;
-
-//     std::cout << "Several code sections:" << std::endl;
-//     BENCH_PRINT_Nanosec;
-// }
+    std::cout << "Several code sections:" << std::endl;
+    BENCH_PRINT_FUNC_Milisec;
+}
 
 int main(int argc, char** argv)
 {
@@ -117,13 +118,13 @@ int main(int argc, char** argv)
 
     if (BenchOptions::all.compare(option) == 0)
     {
-        //SeveralCodeSectionsDemo(complexity);
+        SeveralCodeSectionsDemo(complexity);
         FunctionsBenchmarkDemo(complexity);
 
     }
     else if (BenchOptions::serial.compare(option) == 0)
     {
-        //SeveralCodeSectionsDemo(complexity);
+        SeveralCodeSectionsDemo(complexity);
     }
     else if (BenchOptions::single.compare(option) == 0)
     {

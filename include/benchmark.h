@@ -12,15 +12,17 @@
 
 namespace bench {
 
-    #define NO_OPT() (asm volatile("" :))
+    #define NO_OPT_EMPTY (asm volatile("" :))
+    #define NO_OPT(x) asm volatile("" : "+r"((x))) 
 
     /// @brief helps avoid compiler optimizations for a more precise benchmarking
     /// @tparam T may be anything that would make sense in this context
     /// @param t a param that must not be optimized, e.g., int a = 0;  NoOptimization(a);
-    template <typename T>
-    inline void NoOptimization(T& t) {
-        asm volatile("" : "+r"(t));
-    } 
+    // template <typename T>
+    // inline void NoOptimization(T& t) {
+    //     asm volatile("" : "+r"(t));
+    // } 
+
 
     //TODO: check this one out
     inline void NoOptimizationEmptyAsm() {
@@ -28,13 +30,20 @@ namespace bench {
     } 
 
     /// @brief comprises a benchmark task data 
-    struct BenchData {
+    struct BenchData final {
         using Time = std::chrono::time_point<std::chrono::steady_clock>;
 
         template <typename Ratio>
-        using TimePeriod = const std::chrono::duration<double, Ratio>;
+        using TimePeriod = const std::chrono::duration<long double, Ratio>;
     public:
+        BenchData() = default;
         BenchData(std::string name, Time begin_time, Time end_time = {});
+        BenchData(const BenchData& other);
+        BenchData(BenchData&& other);
+        BenchData& operator=(const BenchData& other);
+        BenchData& operator=(BenchData&& other);
+
+        ~BenchData() = default;
 
         /// @brief sets the end time point
         /// @param end_time - the measured end time point
@@ -46,7 +55,14 @@ namespace bench {
         typename TimePeriod<T>::rep 
         GetEllapsedTimeAs() const
         {
-            return std::chrono::duration<double, T>(end - begin).count();
+            using namespace std::literals;
+            //subst with the alias above
+            const auto time_period = std::chrono::duration<long double, T>(end - begin).count();
+            std::cout << "ellased " << time_period << std::endl;
+            const auto secs = std::chrono::duration<long double, std::nano>(end - begin).count();
+            std::cout << "ellased (no ratio) " << time_period << std::endl;
+
+            return std::chrono::duration<long double, T>(end - begin).count();
         }
 
     public:
@@ -68,8 +84,11 @@ namespace bench {
             const auto taskId = GiveId(); 
             auto begin = std::chrono::steady_clock::now();
             bench_tasks_data_[taskId] = {std::forward<T>(name), begin};
+            std::cout << "Task id pushed: " << taskId << std::endl;
             bench_tasks_stack_.push(taskId);
         }
+
+        virtual ~BasicBenchmarker() = default;
 
         void StartBenchmark();
         void EndBenchmark();
@@ -84,7 +103,7 @@ namespace bench {
             for (const auto& elem : bench_tasks_data_)
             {
                 os << '#' << elem.first << ": " << elem.second.bench_name << '\n'
-                    << "Duration: " << elem.second.GetEllapsedTimeAs<Ratio>();
+                    << "Duration: " << elem.second.GetEllapsedTimeAs<Ratio>() << '\n';
             }
             return os.str();
         }
@@ -97,7 +116,7 @@ namespace bench {
         BenchEvents bench_tasks_data_;
     };
 
-    class FuncBenchmarker {
+    class FuncBenchmarker final {
         using BenchEvents = std::list<BenchData>;
         FuncBenchmarker() = default;
     public:
@@ -122,7 +141,8 @@ namespace bench {
             {
                 int ctr = 1;
                 os << '#' << ctr << ": " <<  elem.bench_name << '\n'
-                    << "Duration: " << elem.GetEllapsedTimeAs<Ratio>();
+                    << "Duration: " << elem.GetEllapsedTimeAs<Ratio>() << '\n';
+                ++ctr;
             }
             return os.str();
         }
