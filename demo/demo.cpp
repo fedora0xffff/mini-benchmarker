@@ -4,27 +4,23 @@
 #include <string_view>
 #include <vector>
 
+
 using namespace bench;
 
 namespace BenchOptions
 {
     using namespace std::literals;
-    constexpr auto serial = "serial"sv;
-    constexpr auto single = "single"sv;
+    constexpr auto scoped = "scoped"sv;
     constexpr auto function = "function"sv;
-    constexpr auto functions = "functions"sv;
-    constexpr auto all = "all"sv;
 }
 
 std::string GetHelp()
 {
     std::ostringstream os;
-    os << "Usage: demo <benchmark_type> <complexity>, \nwhere complexity is the number of elements to insert to a vector,\n"
+    os << "Usage: demo <benchmark_type> <complexity>, \nwhere complexity is the number\n of elements to insert to a vector,\n"
         << "benchmark_type is a form of benchmarking: \n"
-        << "- single - show a benchmark result of a single code section\n"
-        << "- serial - show a benchmark result of several code sections that can overlap\n"
-        << "- functions - show benchmark results of several functions\n"
-        << "- all - demonstrate all forms";
+        << "- scoped - show a benchmark result of a single code section\n"
+        << "- function - show benchmark results of several functions\n";
     return os.str();
 }
 
@@ -33,13 +29,10 @@ void ManyPushbacksNoReserve(int num_elements)
     std::vector<char> bytes;
     for (int i = 0; i < num_elements; ++i)
     {
-        //NoOptimization(i);
-        NO_OPT(i);
         bytes.push_back(i);
+        NoOptimization(bytes[i] = bytes[i]);
     }
-    NO_OPT(bytes[bytes.size()-1]);
-    //NoOptimization(bytes);
-    std::cout << bytes.size() << std::endl;
+    NoOptimization(bytes.size());
 }
 
 void ManyPushbacksWithReserve(int num_elements)
@@ -48,15 +41,10 @@ void ManyPushbacksWithReserve(int num_elements)
     bytes.reserve(num_elements);
     for (int i = 0; i < num_elements; ++i)
     {
-        // using NoOptimization with @i for loop optimization ellision
-        //NoOptimization(i);
-        NO_OPT(i);
         bytes.push_back(i);
+        NoOptimization(bytes[i] = bytes[i]);
     }
-    // same, using NoOptimization with @bytes to guarantee that vector is filled
-    //NoOptimization(bytes);
-    NO_OPT(bytes[bytes.size()-1]);
-    std::cout << bytes.size() << std::endl;
+    NoOptimization(bytes.size());
 }
 
 void FunctionsBenchmarkDemo(int num_elements)
@@ -69,37 +57,25 @@ void FunctionsBenchmarkDemo(int num_elements)
         ManyPushbacksWithReserve(num_elements);
     };
 
-    BENCH_FUNC(lambda_one);
-    BENCH_FUNC(lambda_two);
+    MEASURE_FUNC(lambda_one, "ManyPushbacksNoReserve");
+    MEASURE_FUNC(lambda_two, "ManyPushbacksWithReserve");
 
-    std::cout << "Several functions:" << std::endl;
-    BENCH_PRINT_FUNC_Nanosec;
+    PRINT_RES;
 }
 
-void SingleCodeSectionDemo(int num_elements)
+void ScopedBenchDemo(int num_elements)
 {
-    BENCH_START;
-    ManyPushbacksNoReserve(num_elements);
-    BENCH_END;
+   {
+        LOG_DURATION("ManyPushbacksNoReserve");
+        ManyPushbacksNoReserve(num_elements);
+   }
 
-    std::cout << "Single code section:" << std::endl;
-    BENCH_PRINT_Nanosec;
+   {
+        LOG_DURATION("ManyPushbacksWithReserve");
+        ManyPushbacksWithReserve(num_elements);
+   }
 }
 
-void SeveralCodeSectionsDemo(int num_elements)
-{
-    
-    BENCH_START_NAMED("section1: ManyPushbacksNoReserveDemo");
-    ManyPushbacksNoReserve(num_elements);
-    BENCH_END;
-
-    BENCH_START_NAMED("section2: ManyPushbacksWithReserveDemo");
-    ManyPushbacksWithReserve(num_elements);
-    BENCH_END;
-
-    std::cout << "Several code sections:" << std::endl;
-    BENCH_PRINT_FUNC_Milisec;
-}
 
 int main(int argc, char** argv)
 {
@@ -108,6 +84,7 @@ int main(int argc, char** argv)
     if (argc < 2)
     {
         std::cout << GetHelp() << std::endl;
+        return 0;
     }
     else if (argc == 3)
     {
@@ -116,21 +93,11 @@ int main(int argc, char** argv)
 
     const auto option = argv[1];
 
-    if (BenchOptions::all.compare(option) == 0)
+    if (BenchOptions::scoped.compare(option) == 0)
     {
-        SeveralCodeSectionsDemo(complexity);
-        FunctionsBenchmarkDemo(complexity);
-
+        ScopedBenchDemo(complexity);
     }
-    else if (BenchOptions::serial.compare(option) == 0)
-    {
-        SeveralCodeSectionsDemo(complexity);
-    }
-    else if (BenchOptions::single.compare(option) == 0)
-    {
-        SingleCodeSectionDemo(complexity);
-    }
-    else if (BenchOptions::functions.compare(option) == 0)
+    else if (BenchOptions::function.compare(option) == 0)
     {
         FunctionsBenchmarkDemo(complexity);
     }
