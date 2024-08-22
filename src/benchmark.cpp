@@ -2,39 +2,35 @@
 
 using namespace bench;
 
-//BasicBenchmarker
-BasicBenchmarker& BasicBenchmarker::GetInstance()
-{
-    static BasicBenchmarker bench;
-    return bench;
-}
-
-void BasicBenchmarker::StartBenchmark()
-{
-    const auto taskId = GiveId(); 
-    auto begin = std::chrono::steady_clock::now();
-    bench_tasks_data_[taskId] = BenchData{"", begin};
-    std::cout << "Task id pushed: " << taskId << std::endl;
-
-    bench_tasks_stack_.push(taskId);
-}
-
-void BasicBenchmarker::EndBenchmark()
-{
-    auto end = std::chrono::steady_clock::now();
-    const auto finishedTaskId = bench_tasks_stack_.top();
-    std::cout << "Task id popped: " << finishedTaskId << std::endl;
-    bench_tasks_stack_.pop();
-    bench_tasks_data_[finishedTaskId].SetEnd(end);
-}
-
-BasicBenchmarker::TaskId BasicBenchmarker::GiveId()
-{
-    return ++task_ctr_;
-}
-
 FuncBenchmarker &bench::FuncBenchmarker::GetInstance()
 {
     static FuncBenchmarker bench;
     return bench;
+}
+void bench::FuncBenchmarker::clear()
+{
+    bench_funcs_data_.clear();
+}
+
+bench::ScopedBench::ScopedBench(std::string name)
+: bench_data_(std::move(name), 
+std::chrono::steady_clock::now())
+{
+}
+
+bench::ScopedBench::~ScopedBench() 
+{
+    bench_data_.SetEnd(std::chrono::steady_clock::now());
+    std::cout << Dump();
+}
+
+std::string bench::ScopedBench::Dump() const
+{   
+    using namespace std::chrono;
+    std::ostringstream os; 
+    os << bench_data_.message << ":\n"
+        << "Duration, ns: " << bench_data_.GetEllapsedTimeAs<nanoseconds>() << '\n'
+        << "Duration, ms: " << bench_data_.GetEllapsedTimeAs<milliseconds>() << '\n'
+        << "Duration, sec: " << bench_data_.GetEllapsedTimeAs<seconds>() << '\n';
+    return os.str();
 }
