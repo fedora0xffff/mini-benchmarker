@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <chrono>
 #include <string>
@@ -6,27 +6,18 @@
 #include <map>
 #include <list>
 #include <string>
-#include <stack>
 #include <sstream>
-#include <ratio>
 
 namespace bench {
 
-    #define NO_OPT_EMPTY (asm volatile("" :))
     #define NO_OPT(x) asm volatile("" : "+r"((x))) 
 
-    /// @brief helps avoid compiler optimizations for a more precise benchmarking
-    /// @tparam T may be anything that would make sense in this context
-    /// @param t a param that must not be optimized, e.g., int a = 0;  NoOptimization(a);
-    // template <typename T>
-    // inline void NoOptimization(T& t) {
-    //     asm volatile("" : "+r"(t));
-    // } 
-
-
-    //TODO: check this one out
-    inline void NoOptimizationEmptyAsm() {
-        asm volatile("" :);
+    /// @brief helps avoid compiler optimizations for an expression 
+    /// @tparam T - the resulting type of an expression 
+    /// @param t the expression;
+    template <typename T>
+    inline void NoOptimization(T&& t) {
+        asm volatile("" : "+r"(t));
     } 
 
     /// @brief comprises a benchmark task data 
@@ -37,12 +28,7 @@ namespace bench {
         using TimePeriod = const std::chrono::duration<long double, Ratio>;
     public:
         BenchData() = default;
-        BenchData(std::string name, Time begin_time, Time end_time = {});
-        BenchData(const BenchData& other);
-        BenchData(BenchData&& other);
-        BenchData& operator=(const BenchData& other);
-        BenchData& operator=(BenchData&& other);
-
+        BenchData(std::string str, Time begin_time, Time end_time = {});
         ~BenchData() = default;
 
         /// @brief sets the end time point
@@ -52,68 +38,30 @@ namespace bench {
     public:
 
         template <typename T>
-        typename TimePeriod<T>::rep 
-        GetEllapsedTimeAs() const
+        auto GetEllapsedTimeAs() const
         {
             using namespace std::literals;
-            //subst with the alias above
-            const auto time_period = std::chrono::duration<long double, T>(end - begin).count();
-            std::cout << "ellased " << time_period << std::endl;
-            const auto secs = std::chrono::duration<long double, std::nano>(end - begin).count();
-            std::cout << "ellased (no ratio) " << time_period << std::endl;
-
-            return std::chrono::duration<long double, T>(end - begin).count();
+            auto dur = end - begin;
+            return std::chrono::duration_cast<T>(dur).count();
         }
 
     public:
-        std::string bench_name;
+        std::string message;
         Time begin;
         Time end;
     };
 
-    class BasicBenchmarker {
-        using TaskId = int;
-        using BenchEvents = std::map<TaskId, BenchData>;
-        BasicBenchmarker() = default;
+    class ScopedBench {
     public:
-        static BasicBenchmarker& GetInstance();
-
-        template <typename T>
-        void StartBenchmark(T&& name)
-        {
-            const auto taskId = GiveId(); 
-            auto begin = std::chrono::steady_clock::now();
-            bench_tasks_data_[taskId] = {std::forward<T>(name), begin};
-            std::cout << "Task id pushed: " << taskId << std::endl;
-            bench_tasks_stack_.push(taskId);
-        }
-
-        virtual ~BasicBenchmarker() = default;
-
-        void StartBenchmark();
-        void EndBenchmark();
+        ScopedBench(std::string name);
+        virtual ~ScopedBench();
     public:
-
-        /// @brief dumps all benchmark events
-        /// @return a string of formatted benchark event entries
-        template <typename Ratio>
-        std::string Dump() const
-        {
-            std::ostringstream os; 
-            for (const auto& elem : bench_tasks_data_)
-            {
-                os << '#' << elem.first << ": " << elem.second.bench_name << '\n'
-                    << "Duration: " << elem.second.GetEllapsedTimeAs<Ratio>() << '\n';
-            }
-            return os.str();
-        }
+        /// @brief dumps current benchmark event
+        /// @return the formatted string 
+        std::string Dump() const;
 
     private:
-        TaskId GiveId();
-
-        int task_ctr_ = 0;
-        std::stack<TaskId> bench_tasks_stack_;
-        BenchEvents bench_tasks_data_;
+        BenchData bench_data_;
     };
 
     class FuncBenchmarker final {
@@ -121,6 +69,9 @@ namespace bench {
         FuncBenchmarker() = default;
     public:
         static FuncBenchmarker& GetInstance();
+
+        void clear();
+
         template <typename Lambda>
         void MeasureFunction(Lambda&& lambda, const std::string& lambda_name)
         {
@@ -136,11 +87,24 @@ namespace bench {
         template <typename Ratio>
         std::string Dump() const
         {
-            std::ostringstream os; 
+            std::ostringstream os;
+            std::string unit;
+            if (typeid(Ratio) == typeid(std::chrono::milliseconds)) {
+                unit = "ms";
+            }
+            else if (typeid(Ratio) == typeid(std::chrono::seconds)) {
+                unit = "s";
+            }
+            else if (typeid(Ratio) == typeid(std::chrono::nanoseconds)) {
+                unit = "ns";
+            }
+            else {
+                unit = "";
+            }
             for (const auto& elem : bench_funcs_data_)
             {
                 int ctr = 1;
-                os << '#' << ctr << ": " <<  elem.bench_name << '\n'
+                os << '#' << ctr << ": " <<  elem.message << '\n'
                     << "Duration: " << elem.GetEllapsedTimeAs<Ratio>() << '\n';
                 ++ctr;
             }
@@ -152,36 +116,22 @@ namespace bench {
     };
 } //namespace bench
 
-//benchmark sections named or unnamed
-#define BENCH_START_NAMED(name) bench::BasicBenchmarker::GetInstance().StartBenchmark(name)
-#define BENCH_START (bench::BasicBenchmarker::GetInstance().StartBenchmark())
-#define BENCH_END (bench::BasicBenchmarker::GetInstance().EndBenchmark()) 
+#define MEASURE_FUNC(func, name) \
+    bench::FuncBenchmarker::GetInstance().MeasureFunction(func, name);
 
-//print sections benchmark results
-#define BENCH_PRINT_Milisec {                                                     \
-    const auto res = bench::BasicBenchmarker::GetInstance().Dump<std::milli>();   \
-    std::cout << "in milliseconds:\n" << res << std::endl;                        \
-}
+#define PRINT_RES \ 
+    std::cout << bench::FuncBenchmarker::GetInstance().Dump<std::chrono::milliseconds>();
 
-#define BENCH_PRINT_Nanosec {                                                     \
-    const auto res = bench::BasicBenchmarker::GetInstance().Dump<std::nano>();    \
-    std::cout << "in nanoseconds:\n" << res << std::endl;                         \
-}
+#define PRINT_RES_NS \ 
+    std::cout << bench::FuncBenchmarker::GetInstance().Dump<std::chrono::nanoseconds>();
 
-//benchmark functions 
-#define BENCH_FUNC(FunctionObj) (bench::FuncBenchmarker::GetInstance().MeasureFunction(FunctionObj, #FunctionObj))
+#define PRINT_RES_SEC \ 
+    std::cout << bench::FuncBenchmarker::GetInstance().Dump<std::chrono::seconds>();
 
-//print function benchmark results
-#define BENCH_PRINT_FUNC_Milisec {                                               \
-    const auto res = bench::FuncBenchmarker::GetInstance().Dump<std::milli>();   \
-    std::cout << "in milliseconds:\n" << res << std::endl;                       \
-}
+#define CLEAR (bench::FuncBenchmarker::GetInstance().clear())
 
-#define BENCH_PRINT_FUNC_Nanosec {                                               \
-    const auto res = bench::FuncBenchmarker::GetInstance().Dump<std::nano>();    \
-    std::cout << "in nanoseconds:\n" << res << std::endl;                        \
-}
+#define UNIQ_ID_IMPL(lineno) _a_local_var_##lineno
+#define UNIQ_ID(lineno) UNIQ_ID_IMPL(lineno)
 
-//get benchmarker instances to manage operations manually
-#define BENCH_GET_BASIC (bench::BasicBenchmarker::GetInstance())
-#define BENCH_GET_FUNCS (bench::FuncBenchmarker::GetInstance())
+#define LOG_DURATION(message) \
+  ScopedBench UNIQ_ID(__LINE__){message};
