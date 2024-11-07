@@ -1,4 +1,4 @@
-#include "../include/benchmark.h"
+#include "../include/minibench.h"
 
 using namespace bench;
 
