@@ -105,7 +105,7 @@ namespace bench {
             {
                 int ctr = 1;
                 os << '#' << ctr << ": " <<  elem.message << '\n'
-                    << "Duration: " << elem.GetEllapsedTimeAs<Ratio>() << '\n';
+                    << "Duration: " << elem.GetEllapsedTimeAs<Ratio>() << ' ' << unit << '\n';
                 ++ctr;
             }
             return os.str();
